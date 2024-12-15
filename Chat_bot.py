@@ -1,26 +1,80 @@
-#import streamLit package
-#import langchain packages
-
-
 import streamlit as st
- 
+
 from langchain_ollama import ChatOllama
-from langchain_core.prompts import ( SystemMessagePromptTemplate,
-                                    HumanMessagePromptTemplate,
-                                    ChatMessagePromptTemplate,
-                                    MessagesPlaceholder)
+
+from langchain_core.prompts import (
+                                        SystemMessagePromptTemplate,
+                                        HumanMessagePromptTemplate,
+                                        ChatPromptTemplate,
+                                        MessagesPlaceholder
+                                        )
+
 
 from langchain_core.runnables.history import RunnableWithMessageHistory
 from langchain_community.chat_message_histories import SQLChatMessageHistory
 
 from langchain_core.output_parsers import StrOutputParser
 
-
-
-st.title("Welcome to the chat")
-st.write("Private Chat bot ! Privacy and security")
+st.title("Offline AI assistant")
+st.subheader("Experience AI assistance without compromising privacy.")
 
 base_url = "http://localhost:11434"
-model  = 'llama3.2:3b'
+model = 'llama3.2:3b'
 
-st.chat_input("Write your message")
+user_id = st.text_input("Enter your user id", "demo_user")
+
+def get_session_history(session_id):
+    return SQLChatMessageHistory(session_id, "sqlite:///chat_history.db")
+
+if "chat_history" not in st.session_state:
+    st.session_state.chat_history = []
+
+if st.button("Start New Conversation"):
+    st.session_state.chat_history = []
+    history = get_session_history(user_id)
+    history.clear()
+
+
+for message in st.session_state.chat_history:
+    with st.chat_message(message['role']):
+        st.markdown(message['content'])
+
+
+### LLM Setup
+llm = ChatOllama(base_url=base_url, model=model)
+
+system = SystemMessagePromptTemplate.from_template("You talk like spiderman and help users with their queries, however you are not allowed to use any functionalities with involve fetching resources using IP address or URL or any external resources.")
+human = HumanMessagePromptTemplate.from_template("{input}")
+
+messages = [system, MessagesPlaceholder(variable_name='history'), human]
+
+prompt = ChatPromptTemplate(messages=messages)
+
+chain = prompt | llm | StrOutputParser()
+
+
+runnable_with_history = RunnableWithMessageHistory(chain, get_session_history, 
+                                                   input_messages_key='input', 
+                                                   history_messages_key='history')
+
+def chat_with_llm(session_id, input):
+    for output in runnable_with_history.stream({'input': input}, config={'configurable': {'session_id': session_id}}):
+
+        yield output
+
+
+prompt = st.chat_input("What is up?")
+# st.write(prompt)
+
+if prompt:
+    st.session_state.chat_history.append({'role': 'user', 'content': prompt})
+
+    with st.chat_message("user"):
+        st.markdown(prompt)
+
+    with st.chat_message("assistant"):
+        response = st.write_stream(chat_with_llm(user_id, prompt))
+
+    st.session_state.chat_history.append({'role': 'assistant', 'content': response})
+
+    #credits: https://github.com/laxmimerit/
