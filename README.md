@@ -9,6 +9,11 @@ Welcome to **llama_chatbot**, your offline-powered language model chatbot! Built
 - **Llama.3 Billion Dataset**: Trained on an extensive dataset for smarter, more natural conversations.
 - **Interactive UI**: Built with **Streamlit** to give you an intuitive and user-friendly experience.
 
+## Demo:
+
+![Sample 1](image.png)
+![Sample 2](image-1.png)
+
 ## Installation 🔧
 Getting started is easy! Follow these steps to set up **llama_chatbot** on your machine:
 
